@@ -10,11 +10,25 @@ def connect_to_mt5():
     if not mt5.initialize():
         logger.error("Failed to initialize MT5")
         return False
-    authorized = mt5.login(MT5_ACCOUNT["login"], password=MT5_ACCOUNT["password"], server=MT5_ACCOUNT["server"])
-    if not authorized:
-        logger.error("Failed to login to MT5")
+        
+    # Add debug logging to verify credentials
+    logger.info(f"Attempting to connect to server: {MT5_ACCOUNT['server']}")
+    logger.info(f"Using login: {MT5_ACCOUNT['login']}")
+    
+    authorized = mt5.login(
+        login=int(MT5_ACCOUNT["login"]),  # Convert login to integer
+        password=MT5_ACCOUNT["password"],
+        server=MT5_ACCOUNT["server"]
+    )
+    
+    if authorized:
+        logger.info("Successfully connected to MT5")
+        return True
+    else:
+        error = mt5.last_error()
+        logger.error(f"Failed to login to MT5. Error: {error}")
         return False
-    return True
+
 
 def fetch_data(symbol, timeframe, bars=100):
     if not mt5.symbol_select(symbol, True):
