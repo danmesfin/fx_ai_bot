@@ -1,8 +1,9 @@
 # main.py
 from contextlib import asynccontextmanager
 from datetime import datetime
-from fastapi import FastAPI
-from mt5_data_fetcher import connect_to_mt5, fetch_data
+from fastapi import FastAPI, Query
+from typing import List
+from mt5_data_fetcher import connect_to_mt5, fetch_data, get_account_info, get_open_trades
 from signal_processor import generate_signal
 from ai_advisor import get_ai_advice
 from trade_executor import place_trade
@@ -22,9 +23,6 @@ async def lifespan(app: FastAPI):
         print("App shutdown complete")
 
 app = FastAPI(lifespan=lifespan)
-
-from fastapi import FastAPI, Query
-from typing import List
 
 @app.get("/trade-recommendation")
 async def trade_recommendation(
@@ -95,3 +93,15 @@ async def auto_trade(symbol: str = "XAUUSD"):
         "trade_status": trade_result,
         "timestamp": datetime.now().isoformat()
     }
+
+@app.get("/account-info")
+async def get_account_info():
+    return get_account_info()
+
+@app.get("/open-trades")
+async def get_open_trades():
+    return get_open_trades()
+
+@app.get("/trade-history")
+async def get_trade_history():
+    return get_trade_history()
