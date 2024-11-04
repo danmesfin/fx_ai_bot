@@ -1,30 +1,55 @@
 # main.py
-
+from contextlib import asynccontextmanager
+from datetime import datetime
 from fastapi import FastAPI
 from mt5_data_fetcher import connect_to_mt5, fetch_data
 from signal_processor import generate_signal
 from ai_advisor import get_ai_advice
 from trade_executor import place_trade
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: connect to MT5
+    try:
+        if not connect_to_mt5():
+            print("Failed to connect to MetaTrader 5 on startup")
+        else:
+            print("Successfully connected to MetaTrader 5")
+        yield
+    finally:
+        # Shutdown: cleanup operations
+        # mt5.shutdown()  # Uncomment if you need to clean up MT5 connection
+        print("App shutdown complete")
 
-# Lifespan event for startup and shutdown
-@app.lifespan
-async def app_lifespan(app: FastAPI):
-    # Startup event
-    if not connect_to_mt5():
-        print("Failed to connect to MetaTrader 5 on startup")
-    yield
-    # Shutdown event (if any teardown logic is needed)
-    # e.g., mt5.shutdown() if you need to clean up MT5 connection
-    print("App shutdown complete")
+app = FastAPI(lifespan=lifespan)
+
+from fastapi import FastAPI, Query
+from typing import List
 
 @app.get("/trade-recommendation")
-async def trade_recommendation(symbol: str, timeframes: list = ["M1", "M5", "H1"]):
+async def trade_recommendation(
+    symbol: str,
+    timeframes: List[str] = Query(default=["M1", "M5", "H1"])
+):
     data = {tf: fetch_data(symbol, tf) for tf in timeframes}
-    signal = generate_signal(data["M1"])  # Simplified to use one timeframe
+    
+    # Get current price from latest M1 candle
+    current_price = data["M1"][-1][4]  # Close price of last candle
+    
+    signal = {
+        "type": generate_signal(data["M1"]),
+        "current_price": current_price
+    }
+    
     ai_advice = get_ai_advice(signal)
-    return {"signal": signal, "ai_advice": ai_advice}
+    
+    return {
+        "symbol": symbol,
+        "signal": signal["type"],
+        "current_price": current_price,
+        "ai_advice": ai_advice,
+        "timeframes_analyzed": timeframes
+    }
 
 @app.post("/execute-trade")
 async def execute_trade(symbol: str, action: str, auto: bool = False):
@@ -33,3 +58,40 @@ async def execute_trade(symbol: str, action: str, auto: bool = False):
     else:
         result = f"Manual trade suggestion: {action} on {symbol}"
     return {"status": result}
+
+@app.get("/auto-trade")
+async def auto_trade(symbol: str = "XAUUSD"):
+    # Get market data and signals
+    data = {tf: fetch_data(symbol, tf) for tf in ["M1", "M5", "H1"]}
+    current_price = data["M1"][-1][4]
+    
+    signal = {
+        "type": generate_signal(data["M1"]),
+        "current_price": current_price
+    }
+    
+    ai_advice = get_ai_advice(signal)
+    
+    # Parse AI advice to get entry, tp, sl
+    lines = ai_advice.split('\n')
+    entry = float(lines[0].split('$')[1])
+    tp = float(lines[1].split('$')[1])
+    sl = float(lines[2].split('$')[1])
+    
+    # Execute trade automatically
+    trade_result = place_trade(
+        symbol=symbol,
+        action=signal["type"],
+        entry_price=entry,
+        take_profit=tp,
+        stop_loss=sl
+    )
+    
+    return {
+        "symbol": symbol,
+        "signal": signal["type"],
+        "current_price": current_price,
+        "ai_advice": ai_advice,
+        "trade_status": trade_result,
+        "timestamp": datetime.now().isoformat()
+    }
