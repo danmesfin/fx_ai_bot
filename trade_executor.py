@@ -9,7 +9,7 @@ def place_trade(symbol: str, action: str, entry_price: float, take_profit: float
     if not mt5.initialize():
         return "Failed to initialize MT5"
         
-    lot_size = 0.01
+    lot_size = 0.04
     
     # Get current market price
     symbol_info = mt5.symbol_info(symbol)
