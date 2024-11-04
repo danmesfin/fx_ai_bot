@@ -1,10 +1,18 @@
-# config.py
+from dotenv import load_dotenv
+import os
 
+# Load environment variables from .env file
+load_dotenv()
+
+# MT5 account configuration
 MT5_ACCOUNT = {
-    "login": "your_demo_login",
-    "password": "your_demo_password",
-    "server": "your_mt5_server"
+    "login": os.getenv("MT5_LOGIN"),
+    "password": os.getenv("MT5_PASSWORD"),
+    "server": os.getenv("MT5_SERVER")
 }
 
-AI_API_KEY = "your_ai_api_key"  # GPT or Claude API key
-TIME_FRAMES = ["M1", "M5", "H1"]  # Example time frames
+# API key for AI services
+AI_API_KEY = os.getenv("AI_API_KEY")
+
+# Time frames from env (split string into list)
+TIME_FRAMES = os.getenv("TIME_FRAMES").split(",")
